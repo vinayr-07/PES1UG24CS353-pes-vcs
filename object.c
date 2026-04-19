@@ -199,6 +199,10 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
 //
 // The caller is responsible for calling free(*data_out).
 // Returns 0 on success, -1 on error (file not found, corrupt, etc.).
+
+// Read and parse object: "<type> <size>\0<data>"
+// Verify integrity by recomputing SHA-256 hash
+
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
     // Step 1: Build file path
     char path[512];
