@@ -281,7 +281,8 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
     ObjectID computed_id;
     compute_hash(buffer, file_size, &computed_id);
     
-    if (memcmp(&computed_id, id, sizeof(ObjectID)) != 0) {
+        if (memcmp(&computed_id, id, sizeof(ObjectID)) != 0) {
+        fprintf(stderr, "Error: Object integrity check failed - hash mismatch\n"); // <--- ADD THIS LINE
         free(buffer);
         return -1;  // Hash mismatch - corrupted!
     }
