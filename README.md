@@ -571,7 +571,19 @@ The following questions cover filesystem concepts beyond the implementation scop
 
 ### Analysis Questions (written answers)
 
-| Section                   | Questions        |
-| ------------------------- | ---------------- |
-| Branching (analysis-only) | Q5.1, Q5.2, Q5.3 |
-| GC (analysis-only)        | Q6.1, Q6.2       |
+## Phase 5 & 6: Analysis Answers
+
+### Q5.1 — Implementing `pes checkout <branch>`
+Update `.pes/HEAD` to contain `ref: refs/heads/<branch>`. Then read the target branch's commit, walk its tree object, and restore every file from the object store to the working directory. The complexity lies in: (1) creating missing subdirectories, (2) deleting files present in the current tree but absent in the target tree, and (3) updating the index to exactly match the checked-out tree.
+
+### Q5.2 — Detecting dirty working directory conflict
+For each file in the index, recompute its blob hash from the working directory and compare it to the stored hash. If any differ, the working directory is dirty for that file. If that same file also differs between the source and target branch trees, checkout must refuse — overwriting it would silently destroy uncommitted work.
+
+### Q5.3 — Detached HEAD
+In detached HEAD state, `HEAD` holds a raw commit hash instead of a branch reference. New commits are created and `HEAD` is updated, but no branch pointer moves. Once you check out a branch, those commits become unreachable. Recovery: immediately note the hash from `./pes log`, then create a branch pointing to it — `git branch recover <hash>` — before the hash is lost.
+
+### Q6.1 — Garbage Collection Algorithm
+Use **mark-and-sweep**: starting from all branch refs, walk every commit via parent pointers, collect every tree hash, then recursively collect all blob hashes from those trees. Store all reachable hashes in a **hash set** for O(1) lookup. Delete any object file whose name is not in the set. For 100,000 commits across 50 branches, expect to visit roughly 100,000 commits + ~300,000–500,000 tree/blob objects ≈ ~500,000 total objects.
+
+### Q6.2 — GC Race Condition
+Race scenario: (1) a commit writes a new blob to the object store but hasn't yet written the commit object referencing it; (2) GC runs at this exact moment, finds the blob unreachable, and deletes it; (3) the commit object is then written pointing to a now-deleted blob — silent corruption. Git avoids this with a **2-week grace period** (objects newer than 2 weeks are never GC'd) and by holding a repository lock during active write operations.
