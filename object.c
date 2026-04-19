@@ -1,3 +1,4 @@
+// PES-VCS — Content-addressable object store
 //
 // Every piece of data (file contents, directory listings, commits) is stored
 // as an "object" named by its SHA-256 hash. Objects are stored under
@@ -106,6 +107,9 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     
     // Step 3: Compute hash of full object (header + data)
     size_t total_size = header_len + 1 + len;
+    
+    // Allocate memory for full object (header + null byte + data)
+    // Memory will be freed after writing to disk or on error
     void *full_object = malloc(total_size);
     if (!full_object) return -1;
     
@@ -199,10 +203,6 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
 //
 // The caller is responsible for calling free(*data_out).
 // Returns 0 on success, -1 on error (file not found, corrupt, etc.).
-
-// Read and parse object: "<type> <size>\0<data>"
-// Verify integrity by recomputing SHA-256 hash
-
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
     // Step 1: Build file path
     char path[512];
@@ -281,8 +281,8 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
     ObjectID computed_id;
     compute_hash(buffer, file_size, &computed_id);
     
-        if (memcmp(&computed_id, id, sizeof(ObjectID)) != 0) {
-        fprintf(stderr, "Error: Object integrity check failed - hash mismatch\n"); // <--- ADD THIS LINE
+    if (memcmp(&computed_id, id, sizeof(ObjectID)) != 0) {
+        fprintf(stderr, "Error: Object integrity check failed - hash mismatch\n");
         free(buffer);
         return -1;  // Hash mismatch - corrupted!
     }
@@ -298,7 +298,7 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
         }
         memcpy(*data_out, (char *)buffer + header_len + 1, data_size);
     }
-
+    
     free(buffer);
     return 0;
 }
